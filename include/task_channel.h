@@ -21,7 +21,7 @@ namespace spiritsaway::concurrency
 		struct task_queue
 		{
 			std::uint32_t executor_id = 0;
-			std::queue<task_ptr> _queue;
+			std::deque<task_ptr> _queue;
 		};
 	protected:
 		std::unordered_map<channel_type, std::shared_ptr<task_queue>> _tasks_by_channel;
@@ -39,7 +39,7 @@ namespace spiritsaway::concurrency
 			return channel_id != default_channel_id;
 		}
 	public:
-		void add_task(task_ptr task)
+		void add_task(task_ptr task, bool front = false)
 		{
 			auto cur_channel_id = task->channel_id();
 			std::lock_guard<std::mutex> task_lock(_task_mutex);
@@ -51,16 +51,24 @@ namespace spiritsaway::concurrency
 				{
 
 					auto cur_task_channel = std::make_shared<task_queue>();
-					cur_task_channel->_queue.push(task);
+					cur_task_channel->_queue.push_back(task);
 				}
 				else
 				{
-					cur_channel_iter->second->_queue.push(task);
+					if(front)
+					{
+						cur_channel_iter->second->_queue.push_front(task);
+					}
+					else
+					{
+						cur_channel_iter->second->_queue.push_back(task);
+					}
+					
 				}
 			}
 			else
 			{
-				_tasks_without_channel->_queue.push(task);
+				_tasks_without_channel->_queue.push_back(task);
 			}
 			add_task_count++;
 			if(add_task_count % 2000 == 0)
@@ -88,7 +96,7 @@ namespace spiritsaway::concurrency
 			}
 			result_queue->executor_id = cur_executor_id;
 			auto cur_task = result_queue->_queue.front();
-			result_queue->_queue.pop();
+			result_queue->_queue.pop_front();
 			run_task_count++;
 			return cur_task;
 			
