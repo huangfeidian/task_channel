@@ -36,7 +36,7 @@ namespace spiritsaway::concurrency
 		
 		bool is_default_channel(const channel_type& channel_id) const
 		{
-			return channel_id != default_channel_id;
+			return channel_id == default_channel_id;
 		}
 	public:
 		void add_task(task_ptr task, bool front = false)
