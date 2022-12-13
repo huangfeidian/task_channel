@@ -50,6 +50,7 @@ namespace spiritsaway::concurrency
 				{
 
 					auto cur_task_channel = std::make_shared<task_queue>();
+					m_tasks_by_channel[cur_channel_id] = cur_task_channel;
 					cur_task_channel->queue.push_back(task);
 				}
 				else
