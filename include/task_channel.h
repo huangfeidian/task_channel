@@ -71,11 +71,6 @@ namespace spiritsaway::concurrency
 				m_tasks_without_channel->queue.push_back(task);
 			}
 			m_add_task_count++;
-
-			if (m_add_task_count % 2000 == 0)
-			{
-				remove_empty_channels();
-			}
 		}
 		
 		task_ptr poll_one_task_impl(channel_type prefer_channel, std::uint32_t cur_executor_id)
@@ -125,6 +120,19 @@ namespace spiritsaway::concurrency
 				return v;
 			}
 			return {};
+		}
+		void remove_empty_channels_impl()
+		{
+			auto iter_begin = m_tasks_by_channel.begin();
+			while(iter_begin != m_tasks_by_channel.end())
+			{
+				auto cur_iter = iter_begin;
+				iter_begin++;
+				if(cur_iter->second->queue.empty() && cur_iter->second->executor_id == 0)
+				{
+					m_tasks_by_channel.erase(cur_iter);
+				}
+			}
 		}
 	public:
 		void add_task(task_ptr task, bool front = false)
@@ -207,15 +215,14 @@ namespace spiritsaway::concurrency
 		
 		void remove_empty_channels()
 		{
-			auto iter_begin = m_tasks_by_channel.begin();
-			while(iter_begin != m_tasks_by_channel.end())
+			if (threading)
 			{
-				auto cur_iter = iter_begin;
-				iter_begin++;
-				if(cur_iter->second->queue.empty())
-				{
-					m_tasks_by_channel.erase(cur_iter);
-				}
+				std::lock_guard<std::mutex> task_lock(m_task_mutex);
+				return remove_empty_channels_impl();
+			}
+			else
+			{
+				return remove_empty_channels_impl();
 			}
 		}
 		virtual void finish_task(task_ptr cur_task)
