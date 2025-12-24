@@ -28,11 +28,11 @@ public:
 	static constexpr std::size_t HASH_MASK = HASH_BUCKET_COUNT - 1;
 
 protected:
-	// 将m_tasks_by_channel替换为32个task_queue的数组
-	std::array<std::shared_ptr<task_queue>, HASH_BUCKET_COUNT> m_task_buckets;
-	std::shared_ptr<task_queue> m_tasks_without_channel;
-	std::mutex m_task_mutex;
 	const channel_type m_default_channel_id;
+	std::array<task_queue, HASH_BUCKET_COUNT> m_task_buckets;
+	task_queue m_tasks_without_channel;
+	std::mutex m_task_mutex;
+	
 	std::atomic<std::size_t> m_add_task_count = 0;
 	std::atomic<std::size_t> m_run_task_count = 0;
 	std::atomic<std::size_t> m_finish_task_count = 0;
@@ -62,16 +62,16 @@ protected:
 
 			if (front)
 			{
-				task_queue->queue.push_front(task);
+				task_queue.queue.push_front(task);
 			}
 			else
 			{
-				task_queue->queue.push_back(task);
+				task_queue.queue.push_back(task);
 			}
 		}
 		else
 		{
-			m_tasks_without_channel->queue.push_back(task);
+			m_tasks_without_channel.queue.push_back(task);
 		}
 		m_add_task_count++;
 	}
@@ -94,7 +94,7 @@ protected:
 		return cur_task;
 	}
 
-	std::shared_ptr<task_queue> select_task_queue(channel_type prefer_channel, std::uint32_t cur_executor_id)
+	task_queue* select_task_queue(channel_type prefer_channel, std::uint32_t cur_executor_id)
 	{
 
 		// 1. 如果指定了非默认channel，优先检查对应的bucket
@@ -102,16 +102,16 @@ protected:
 		{
 			std::size_t prefer_bucket = hash_channel(prefer_channel);
 			auto &queue = m_task_buckets[prefer_bucket];
-			if (!queue->queue.empty() && (queue->executor_id == 0 || queue->executor_id == cur_executor_id))
+			if (!queue.queue.empty() && (queue.executor_id == 0 || queue.executor_id == cur_executor_id))
 			{
-				return queue;
+				return &queue;
 			}
 		}
 
 		// 2. 检查是否有默认channel的任务
-		if (!m_tasks_without_channel->queue.empty())
+		if (!m_tasks_without_channel.queue.empty())
 		{
-			return m_tasks_without_channel;
+			return &m_tasks_without_channel;
 		}
 
 		// 3. 遍历所有bucket，找到一个非空且未被其他worker占用的队列
@@ -120,14 +120,14 @@ protected:
 		auto random_start = m_run_task_count % HASH_BUCKET_COUNT;
 		for (std::size_t i = 0; i < HASH_BUCKET_COUNT; ++i)
 		{
-			auto &queue = m_task_buckets[(random_start + i) % HASH_BUCKET_COUNT];
-			if (!queue->queue.empty() && queue->executor_id == 0)
+			auto &backet = m_task_buckets[(random_start + i) % HASH_BUCKET_COUNT];
+			if (!backet.queue.empty() && backet.executor_id == 0)
 			{
-				return queue;
+				return &backet;
 			}
 		}
 
-		return {};
+		return nullptr;
 	}
 	void finish_task_impl(task_ptr cur_task)
 	{
@@ -137,9 +137,9 @@ protected:
 		{
 			std::size_t bucket_index = hash_channel(cur_task->channel_id());
 			auto &task_queue = m_task_buckets[bucket_index];
-			if (task_queue->queue.empty())
+			if (task_queue.queue.empty())
 			{
-				task_queue->executor_id = 0;
+				task_queue.executor_id = 0;
 			}
 		}
 	}
@@ -158,13 +158,9 @@ public:
 	}
 
 	task_channels()
-		: m_tasks_without_channel(std::make_shared<task_queue>()), m_default_channel_id()
+		: m_default_channel_id()
 	{
-		// 提前在构造函数中初始化所有bucket
-		for (std::size_t i = 0; i < HASH_BUCKET_COUNT; ++i)
-		{
-			m_task_buckets[i] = std::make_shared<task_queue>();
-		}
+		
 	}
 
 	task_channels(const task_channels &other) = delete;
@@ -172,6 +168,11 @@ public:
 
 	task_ptr poll_one_task(channel_type prefer_channel, std::uint32_t cur_executor_id)
 	{
+		if(cur_executor_id == 0)
+		{
+			// executor_id不能为0
+			return {};
+		}
 		if (threading)
 		{
 			std::lock_guard<std::mutex> task_lock(m_task_mutex);
@@ -204,9 +205,17 @@ public:
 	// 添加一个方法用于检查特定bucket的状态（可选）
 	bool bucket_empty(std::size_t bucket_index) const
 	{
+
 		if (bucket_index >= HASH_BUCKET_COUNT)
 			return true;
-
-		return m_task_buckets[bucket_index]->queue.empty();
+		if (threading)
+		{
+			std::lock_guard<std::mutex> task_lock(m_task_mutex);
+			return m_task_buckets[bucket_index].queue.empty();
+		}
+		else
+		{
+			return m_task_buckets[bucket_index].queue.empty();
+		}
 	}
 };

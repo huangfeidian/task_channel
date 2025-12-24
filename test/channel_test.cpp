@@ -45,6 +45,47 @@ void test_basic_functionality()
 
 	// 验证所有任务完成
 	assert(channel.tasks_all_finished() == true);
+	assert(channel.poll_one_task(0, 1) == nullptr);
+	std::cout << "finish all tasks!\n\n";
+}
+
+
+void test_channel_switch(int pref_channel)
+{
+	std::cout << "=== 测试基本功能 ===\n";
+
+	TaskChannel channel;
+
+	// 添加任务到不同channel
+	channel.add_task(std::make_shared<TestTask>(1, 1, "Task 1"));
+	channel.add_task(std::make_shared<TestTask>(2, 2, "Task 2"));
+	channel.add_task(std::make_shared<TestTask>(0, 3, "Default channel task"));
+
+	// 获取并完成任务
+	TaskPtr task1 = channel.poll_one_task(pref_channel, 1);
+	assert(task1 != nullptr);
+	std::cout << "get_task: Channel=" << task1->channel_id()
+			  << ", TaskID=" << task1->task_id()
+			  << ", Data=" << task1->data() << std::endl;
+	channel.finish_task(task1);
+
+	TaskPtr task2 = channel.poll_one_task(pref_channel, 1);
+	assert(task2 != nullptr);
+	std::cout << "get_task: Channel=" << task2->channel_id()
+			  << ", TaskID=" << task2->task_id()
+			  << ", Data=" << task2->data() << std::endl;
+	channel.finish_task(task2);
+
+	TaskPtr task3 = channel.poll_one_task(pref_channel, 1);
+	assert(task3 != nullptr);
+	std::cout << "get_task: Channel=" << task3->channel_id()
+			  << ", TaskID=" << task3->task_id()
+			  << ", Data=" << task3->data() << std::endl;
+	channel.finish_task(task3);
+
+	// 验证所有任务完成
+	assert(channel.tasks_all_finished() == true);
+	assert(channel.poll_one_task(0, 1) == nullptr);
 	std::cout << "finish all tasks!\n\n";
 }
 
@@ -226,6 +267,7 @@ int main()
 		for (int i = 0; i < 20; i++)
 		{
 			test_basic_functionality();
+			test_channel_switch(i);
 			test_multithreading();
 			test_channel_allocation();
 			test_default_channel();
