@@ -1,0 +1,2 @@
+add_executable(channel_test channel_test.cpp)
+target_link_libraries(channel_test task_channel)

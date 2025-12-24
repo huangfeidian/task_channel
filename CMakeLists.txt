@@ -25,6 +25,7 @@ endif()
 
 if(IS_TOPLEVEL_PROJECT)
 
+add_subdirectory(test)
 foreach(p LIB BIN INCLUDE)
 	set(var CMAKE_INSTALL_${p}DIR)
 	if(NOT IS_ABSOLUTE "${${var}}")
