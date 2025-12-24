@@ -172,6 +172,7 @@ namespace spiritsaway::concurrency
 			if (cur_executor_id == 0)
 			{
 				// executor_id不能为0
+				assert(false);
 				return {};
 			}
 			if (threading)
