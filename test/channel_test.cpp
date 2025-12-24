@@ -6,7 +6,7 @@
 #include "../include/task_channel.h"
 #include "test_task.h"
 
-using TaskChannel = task_channels<TestTask>;
+using TaskChannel = spiritsaway::concurrency::task_channels<TestTask>;
 using TaskPtr = std::shared_ptr<TestTask>;
 
 // 测试基本功能
