@@ -32,7 +32,7 @@ namespace spiritsaway::concurrency
 		const channel_type m_default_channel_id;
 		std::array<task_queue, HASH_BUCKET_COUNT> m_task_buckets;
 		task_queue m_tasks_without_channel;
-		std::mutex m_task_mutex;
+		mutable std::mutex m_task_mutex;
 
 		std::atomic<std::size_t> m_add_task_count = 0;
 		std::atomic<std::size_t> m_run_task_count = 0;
