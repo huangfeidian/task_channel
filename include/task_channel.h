@@ -51,7 +51,7 @@ namespace spiritsaway::concurrency
 			return channel_id == m_default_channel_id;
 		}
 
-		void add_task_impl(task_ptr task, bool front)
+		void add_task_impl(task_ptr task)
 		{
 			auto cur_channel_id = task->channel_id();
 
@@ -60,15 +60,7 @@ namespace spiritsaway::concurrency
 				// 计算channel的哈希值，确定要使用的bucket
 				std::size_t bucket_index = hash_channel(cur_channel_id);
 				auto &task_queue = m_task_buckets[bucket_index];
-
-				if (front)
-				{
-					task_queue.queue.push_front(task);
-				}
-				else
-				{
-					task_queue.queue.push_back(task);
-				}
+				task_queue.queue.push_back(task);
 			}
 			else
 			{
@@ -146,16 +138,16 @@ namespace spiritsaway::concurrency
 		}
 
 	public:
-		void add_task(task_ptr task, bool front = false)
+		void add_task(task_ptr task)
 		{
 			if (threading)
 			{
 				std::lock_guard<std::mutex> task_lock(m_task_mutex);
-				add_task_impl(task, front);
+				add_task_impl(task);
 			}
 			else
 			{
-				add_task_impl(task, front);
+				add_task_impl(task);
 			}
 		}
 
